@@ -5,6 +5,7 @@
 
 # Include dokku functions 
 source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+
 # Should look in to this... 
 #set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
 
@@ -13,7 +14,10 @@ containers=`dokku_apps`
 echo "------> Regenerating crontab"
 
 # Overwrite crontab ( cant use crontab -r because of the above)
-echo "" | crontab -i - 
+echo "" | crontab -i -
+sleep 1 
+
+crontabdata=""
 
 for container in $containers; do
 
@@ -28,17 +32,25 @@ for container in $containers; do
 	
 		# Pull the contents of the file out of the container
 		cronfile=`docker exec -i "$container.web.1" cat -v /app/crontab`
+		#echo "$cronfile"
 
-		# crontab -l to list current cron
-		# echo "$cronfile" to ammend the pulled cron to it 
-		# crontab - to set the crontab ( gets input form stdio, as we use pipes)
-		crontab -l | echo "$cronfile" | crontab -
-
-		# Litterally give the crontab a second 
-		sleep 1 || true
+		# Add to buffer
+		crontabdata+="# Cron data for $container"
+		crontabdata+=$'\r\n'
+		crontabdata+=$"$cronfile"
+		crontabdata+=$'\r\n'
  
 	fi
 
 done
+
+# Crontab requires whitespace after not sure if the crontab by the user already has whitespace 
+# and if we have double whitespace cron breaks to. so lets abuse a commenti
+crontabdata+="# End of data"
+crontabdata+=$'\r\n'
+echo "$crontabdata" > /tmp/crontab.tmp
+
+# Set cron
+echo "$crontabdata" | crontab /tmp/crontab.tmp
 
 echo "------> done"
