@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+
+# Include dokku functions 
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+
+# Not sure ?
+declare desc="cron build for a specified app"
+cmd="cron"
+
+# Check if we have an app name defined
+[[ -z $2 ]] && dokku_log_fail "Please specify an app"
+
+# Check if app exists 
+verify_app_name "$2"
+
+# Check if there is a crontab file in the container
+echo -e "Checking if there is a crontab for $2"
+crontab=`docker exec -i "$2.web.1" ls /app | grep crontab`
+
+if [ -z "$crontab" ]; then
+    echo "Please add a crontab file in the root of your project and redeploy"
+    exit;
+fi
+
+# Pull the contents of the file out of the container
+cronfile=`docker exec -i "$2.web.1" cat -v /app/crontab`
+
+# crontab -l to list current cron
+# echo "$cronfile" to ammend the pulled cron to it 
+# crontab - to set the crontab ( gets input form stdio, as we use pipes)
+crontab -l | echo "$cronfile" | crontab -

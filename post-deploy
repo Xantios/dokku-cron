@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# Rebuild crontab on deploy
+set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+
+# If you need the appname 
+# APP="$1"
+
+echo "-----> Cron builder"
+dokku cron:rebuild
+

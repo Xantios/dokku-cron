@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# Not sure why, but the crontab command has some weird behaviour
+# So maybe i am missing something here? but for now, just hack arround it  
+
+# Include dokku functions 
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+# Should look in to this... 
+#set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+
+# List all apps
+containers=`dokku_apps`
+echo "------> Regenerating crontab"
+
+# Overwrite crontab ( cant use crontab -r because of the above)
+echo "" | crontab -i - 
+
+for container in $containers; do
+
+	#echo "Checking $container"
+
+	# Check if there is a crontab file in the container
+	crontab=`docker exec -i "$container.web.1" ls /app/crontab >> /dev/null 2>&1 && echo y || echo n` 
+
+	if [ "$crontab" == "y" ]; then
+
+		echo "------> Updating $container"
+	
+		# Pull the contents of the file out of the container
+		cronfile=`docker exec -i "$container.web.1" cat -v /app/crontab`
+
+		# crontab -l to list current cron
+		# echo "$cronfile" to ammend the pulled cron to it 
+		# crontab - to set the crontab ( gets input form stdio, as we use pipes)
+		crontab -l | echo "$cronfile" | crontab -
+
+		# Litterally give the crontab a second 
+		sleep 1 || true
+ 
+	fi
+
+done
+
+echo "------> done"
